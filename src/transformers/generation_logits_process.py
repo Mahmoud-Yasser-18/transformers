@@ -386,35 +386,33 @@ class NoBadWordsLogitsProcessor(LogitsProcessor):
             The id of the *end-of-sequence* token.
     """
 
-    def __init__(self, bad_words_ids: List[List[int]], eos_token_id: int):
+    def __init__(self, bad_words_ids, eos_token_id: int):
 
-        if not isinstance(bad_words_ids, List) or len(bad_words_ids) == 0:
-            raise ValueError(f"`bad_words_ids` has to be a non-emtpy list, but is {bad_words_ids}.")
-        if any(not isinstance(bad_word_ids, list) for bad_word_ids in bad_words_ids):
-            raise ValueError(f"`bad_words_ids` has to be a list of lists, but is {bad_words_ids}.")
-        if any(
-            any((not isinstance(token_id, (int, np.integer)) or token_id < 0) for token_id in bad_word_ids)
-            for bad_word_ids in bad_words_ids
-        ):
-            raise ValueError(
-                f"Each list in `bad_words_ids` has to be a list of positive integers, but is {bad_words_ids}."
-            )
+        # if not isinstance(bad_words_ids, List) or len(bad_words_ids) == 0:
+        #     raise ValueError(f"`bad_words_ids` has to be a non-emtpy list, but is {bad_words_ids}.")
+        # if any(not isinstance(bad_word_ids, list) for bad_word_ids in bad_words_ids):
+        #     raise ValueError(f"`bad_words_ids` has to be a list of lists, but is {bad_words_ids}.")
+        # if any(
+        #     any((not isinstance(token_id, (int, np.integer)) or token_id < 0) for token_id in bad_word_ids)
+        #     for bad_word_ids in bad_words_ids
+        # ):
+        #     raise ValueError(
+        #         f"Each list in `bad_words_ids` has to be a list of positive integers, but is {bad_words_ids}."
+        #     )
 
         #### WHAT THE HELL ????
         bad_words_ids = list(filter(lambda bad_token_seq: bad_token_seq != [eos_token_id], bad_words_ids))
         self.bad_words_id_length_1 = []
         self.bad_words_id_length_greater_than_1 = []
-        for word in bad_words_ids:
-            if len(word) == 1:
-                self.bad_words_id_length_1.append(word[0])
-            else:
-                self.bad_words_id_length_greater_than_1.append(word)
+        self.bad_words_id_length_1= bad_words_ids
+        # for word in bad_words_ids:
+        #         self.bad_words_id_length_1.append(word[0])
 
         self.static_bad_words_mask: Optional[torch.LongTensor] = None
 
-        for banned_token_seq in self.bad_words_id_length_greater_than_1:
-            if len(banned_token_seq) == 0:
-                raise ValueError(f"Banned words token sequences {bad_words_ids} cannot have an empty list")
+        # for banned_token_seq in self.bad_words_id_length_greater_than_1:
+        #     if len(banned_token_seq) == 0:
+        #         raise ValueError(f"Banned words token sequences {bad_words_ids} cannot have an empty list")
 
     def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> torch.FloatTensor:
         if self.static_bad_words_mask is None and len(self.bad_words_id_length_1) > 0:
@@ -455,50 +453,52 @@ class NoBadWordsLogitsProcessor(LogitsProcessor):
     def _set_scores_to_inf_for_banned_tokens(
         self, scores: torch.Tensor, banned_tokens: List[List[int]]
     ) -> torch.Tensor:
-        """
-        Modifies the scores in place by setting the banned token positions to `-inf`. Banned token is expected to be a
-        list of list of banned tokens to ban in the format [[batch index, vocabulary position],...
+        # """
+        # Modifies the scores in place by setting the banned token positions to `-inf`. Banned token is expected to be a
+        # list of list of banned tokens to ban in the format [[batch index, vocabulary position],...
 
-        Args:
-            scores: logits distribution of shape (batch size, vocabulary size)
-            banned_tokens: list of list of tokens to ban of length (batch_size)
-        """
-        banned_mask_list = []
-        for idx, batch_banned_tokens in enumerate(banned_tokens):
-            for token in batch_banned_tokens:
-                # Eliminates invalid bad word IDs that are over the vocabulary size.
-                if token <= scores.shape[1]:
-                    banned_mask_list.append([idx, token])
-                else:
-                    logger.error(
-                        f"An invalid bad word ID is defined: {token}. This ID is not contained in the "
-                        f"vocabulary, and is therefore ignored."
-                    )
-        if not banned_mask_list and self.static_bad_words_mask is None:
-            return scores
+        # Args:
+        #     scores: logits distribution of shape (batch size, vocabulary size)
+        #     banned_tokens: list of list of tokens to ban of length (batch_size)
+        # """
+        # banned_mask_list = []
+        # for idx, batch_banned_tokens in enumerate(banned_tokens):
+        #     for token in batch_banned_tokens:
+        #         # Eliminates invalid bad word IDs that are over the vocabulary size.
+        #         if token <= scores.shape[1]:
+        #             banned_mask_list.append([idx, token])
+        #         else:
+        #             logger.error(
+        #                 f"An invalid bad word ID is defined: {token}. This ID is not contained in the "
+        #                 f"vocabulary, and is therefore ignored."
+        #             )
+        # if not banned_mask_list and self.static_bad_words_mask is None:
+        #     return scores
 
-        else:
-            if banned_mask_list:
-                banned_mask = torch.LongTensor(banned_mask_list)
-                indices = torch.ones(len(banned_mask))
-                # A sparse tensor is generated from a list of coordinates: [[0, 1], [0, 2], [2, 0]]. A conversion to dense tensor generates:
-                # [ 0  1  1 ]
-                # [ 0  0  0 ]
-                # [ 1  0  0 ]
+        # else:
+        #     if banned_mask_list:
+        #         banned_mask = torch.LongTensor(banned_mask_list)
+        #         indices = torch.ones(len(banned_mask))
+        #         # A sparse tensor is generated from a list of coordinates: [[0, 1], [0, 2], [2, 0]]. A conversion to dense tensor generates:
+        #         # [ 0  1  1 ]
+        #         # [ 0  0  0 ]
+        #         # [ 1  0  0 ]
 
-                banned_mask = (
-                    torch.sparse.LongTensor(banned_mask.t(), indices, scores.size())
-                    .to(scores.device)
-                    .to_dense()
-                    .bool()
-                )
+        #         banned_mask = (
+        #             torch.sparse.LongTensor(banned_mask.t(), indices, scores.size())
+        #             .to(scores.device)
+        #             .to_dense()
+        #             .bool()
+        #         )
 
-                if self.static_bad_words_mask is not None:
-                    banned_mask = torch.bitwise_or(banned_mask, self.static_bad_words_mask)
-            else:
-                banned_mask = self.static_bad_words_mask
-
+        #         if self.static_bad_words_mask is not None:
+        #             banned_mask = torch.bitwise_or(banned_mask, self.static_bad_words_mask)
+        #     else:
+        #         banned_mask = self.static_bad_words_mask
+            banned_mask = self.static_bad_words_mask
+            start = time.time()
             scores = scores.masked_fill(banned_mask, -float("inf"))
+            print("time taken to fill with -inf is ",time.time()-start )
             return scores
 
 
