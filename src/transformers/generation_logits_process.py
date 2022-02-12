@@ -23,7 +23,7 @@ import torch
 
 from .file_utils import add_start_docstrings
 from .utils.logging import get_logger
-
+import time 
 
 logger = get_logger(__name__)
 
@@ -400,6 +400,7 @@ class NoBadWordsLogitsProcessor(LogitsProcessor):
                 f"Each list in `bad_words_ids` has to be a list of positive integers, but is {bad_words_ids}."
             )
 
+        #### WHAT THE HELL ????
         bad_words_ids = list(filter(lambda bad_token_seq: bad_token_seq != [eos_token_id], bad_words_ids))
         self.bad_words_id_length_1 = []
         self.bad_words_id_length_greater_than_1 = []
